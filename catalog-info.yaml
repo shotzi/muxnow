@@ -1,11 +1,12 @@
 apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
-  name: aimux
-  title: aimux
+  name: muxnow
+  title: muxnow
   description: AI-Sidecar für tmux mit verlässlicher Pause und Fail-Closed Redaktion
   annotations:
-    gitlab.com/project-slug: ai-factory/aimux
+    gitlab.com/project-slug: ai-factory/muxnow
+    gitlab.com/project-id: '24'
   tags:
     - terminal
     - tmux

@@ -1,4 +1,4 @@
-"""Configuration handling for aimux."""
+"""Configuration handling for muxnow."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ if sys.version_info >= (3, 11):
 else:
     import tomli as tomllib
 
-DEFAULT_CONFIG_PATH = Path.home() / ".config" / "aimux" / "config.toml"
+DEFAULT_CONFIG_PATH = Path.home() / ".config" / "muxnow" / "config.toml"
 
 
 @dataclass
@@ -60,7 +60,7 @@ class GuardConfig:
 
 @dataclass
 class AuditConfig:
-    path: str = "~/.local/state/aimux/audit.jsonl"
+    path: str = "~/.local/state/muxnow/audit.jsonl"
 
     @property
     def resolved_path(self) -> Path:
@@ -68,14 +68,14 @@ class AuditConfig:
 
 
 @dataclass
-class AimuxConfig:
+class MuxnowConfig:
     model: ModelConfig = field(default_factory=ModelConfig)
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     guard: GuardConfig = field(default_factory=GuardConfig)
     audit: AuditConfig = field(default_factory=AuditConfig)
 
     @classmethod
-    def load(cls, path: Path | str | None = None) -> AimuxConfig:
+    def load(cls, path: Path | str | None = None) -> MuxnowConfig:
         config_file = Path(path) if path else DEFAULT_CONFIG_PATH
         if not config_file.exists():
             return cls()
@@ -109,6 +109,10 @@ class AimuxConfig:
                 require_confirm=g_data.get("require_confirm", ["destructive", "write"]),
             ),
             audit=AuditConfig(
-                path=a_data.get("path", "~/.local/state/aimux/audit.jsonl")
+                path=a_data.get("path", "~/.local/state/muxnow/audit.jsonl")
             ),
         )
+
+
+# Backward-compatibility alias
+AimuxConfig = MuxnowConfig

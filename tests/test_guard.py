@@ -1,6 +1,4 @@
-"""Tests for risk classification and command execution guard."""
-
-from aimux.guard import CommandGuard
+from muxnow.guard import CommandGuard
 
 
 def test_destructive_commands_flagged():
@@ -42,7 +40,7 @@ def test_write_commands_default():
     write_samples = [
         "mkdir -p /tmp/myfolder",
         "systemctl restart nginx",
-        "git commit -m 'feat: add aimux'",
+        "git commit -m 'feat: add muxnow'",
         "touch /tmp/testfile",
     ]
     for cmd in write_samples:

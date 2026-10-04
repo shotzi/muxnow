@@ -1,4 +1,4 @@
-# aimux — AI-Sidecar für tmux
+# muxnow — AI-Sidecar für tmux
 
 > **Intelligente Terminal-Assistenz ohne Kontrollverlust.**
 > Unten die gewohnte Shell/SSH-Session, darüber ein schlankes Sidecar-Fenster, das Eingaben und Ausgaben mitliest, Fehler analysiert, Befehlssyntax vorschlägt und auf Knopfdruck einfügt oder ausführt.
@@ -33,16 +33,16 @@
 ## 🏗️ Architektur
 
 ```
-┌── tmux-Session "aimux" ──────────────────────────────────────────────┐
-│  Pane 2 (oben)   aimux-assistant (Textual TUI)                       │
+┌── tmux-Session "muxnow" ─────────────────────────────────────────────┐
+│  Pane 2 (oben)   muxnow-assistant (Textual TUI)                      │
 │                  liest Blöcke, befragt Modell, zeigt Risikostufen    │
-│  Pane 1 (unten)  Shell / SSH ── pipe-pane ──► aimux capture queue     │
+│  Pane 1 (unten)  Shell / SSH ── pipe-pane ──► muxnow capture queue    │
 └──────────────────────────────────────────────────────────────────────┘
          ▲                                                  │
          │ Send-Queue (Blöcke)                              │ Vorschlag
          │                                                  ▼
-    aimux-daemon  ── Block-Parser (OSC 133) ── Redactor ── LiteLLM / Ollama
-                  └─ Audit-Log (JSONL)
+    muxnow-daemon  ── Block-Parser (OSC 133) ── Redactor ── LiteLLM / Ollama
+                   └─ Audit-Log (JSONL)
 ```
 
 ---
@@ -54,10 +54,10 @@
 uv pip install -e .
 
 # Session starten
-aimux start
+muxnow start
 
 # Oder in bestehende tmux-Session einklinken
-aimux attach
+muxnow attach
 ```
 
 ---

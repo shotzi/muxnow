@@ -1,4 +1,4 @@
-"""Command line interface for aimux."""
+"""Command line interface for muxnow."""
 
 from __future__ import annotations
 
@@ -9,9 +9,9 @@ from typing import Optional
 
 import click
 
-from aimux import __version__
-from aimux.config import AimuxConfig
-from aimux.tmux import (
+from muxnow import __version__
+from muxnow.config import MuxnowConfig
+from muxnow.tmux import (
     TmuxError,
     create_sidecar_layout,
     get_current_pane_id,
@@ -22,22 +22,22 @@ from aimux.tmux import (
     start_capture_pipe,
     stop_capture_pipe,
 )
-from aimux.tui import SidecarApp
+from muxnow.tui import SidecarApp
 
-DEFAULT_LOG_DIR = Path.home() / ".local" / "state" / "aimux"
+DEFAULT_LOG_DIR = Path.home() / ".local" / "state" / "muxnow"
 
 
 @click.group()
 @click.version_option(version=__version__)
 def main() -> None:
-    """aimux - AI-Sidecar für tmux mit verlässlicher Pause und Fail-Closed Redaktion."""
+    """muxnow - AI-Sidecar für tmux mit verlässlicher Pause und Fail-Closed Redaktion."""
     pass
 
 
 @main.command()
-@click.option("--session", "-s", default="aimux", help="Name der tmux Session")
+@click.option("--session", "-s", default="muxnow", help="Name der tmux Session")
 def start(session: str) -> None:
-    """Neue aimux-Session mit automatischem Sidecar-Layout starten."""
+    """Neue muxnow-Session mit automatischem Sidecar-Layout starten."""
     DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_file = DEFAULT_LOG_DIR / f"{session}_capture.log"
 
@@ -55,13 +55,13 @@ def start(session: str) -> None:
     start_capture_pipe(shell_pane, str(log_file))
 
     # Split window for sidecar top pane
-    assistant_cmd = f"aimux sidecar --pane '{shell_pane}' --log '{log_file}'"
+    assistant_cmd = f"muxnow sidecar --pane '{shell_pane}' --log '{log_file}'"
     run_tmux("split-window", "-t", session, "-b", "-v", "-l", "12", assistant_cmd)
 
     # Switch focus back to shell pane
     run_tmux("select-pane", "-t", shell_pane)
 
-    click.echo(f"aimux Session '{session}' gestartet. Verbinde...")
+    click.echo(f"muxnow Session '{session}' gestartet. Verbinde...")
     # Attach to session
     os.execvp("tmux", ["tmux", "attach-session", "-t", session])
 
@@ -81,10 +81,10 @@ def attach(pane: Optional[str]) -> None:
 
     start_capture_pipe(target_pane, str(log_file))
 
-    assistant_cmd = f"aimux sidecar --pane '{target_pane}' --log '{log_file}'"
+    assistant_cmd = f"muxnow sidecar --pane '{target_pane}' --log '{log_file}'"
     run_tmux("split-window", "-b", "-v", "-l", "12", assistant_cmd)
     run_tmux("select-pane", "-t", target_pane)
-    click.echo(f"aimux Sidecar für Pane {target_pane} aktiviert.")
+    click.echo(f"muxnow Sidecar für Pane {target_pane} aktiviert.")
 
 
 @main.command()
@@ -110,10 +110,10 @@ def toggle(pane: Optional[str]) -> None:
 
     if is_capture_active(target_pane):
         stop_capture_pipe(target_pane)
-        click.echo(f"aimux: Mitschnitt für Pane {target_pane} PAUSIERT ⏸")
+        click.echo(f"muxnow: Mitschnitt für Pane {target_pane} PAUSIERT ⏸")
     else:
         start_capture_pipe(target_pane, str(log_file))
-        click.echo(f"aimux: Mitschnitt für Pane {target_pane} AKTIV ⏺")
+        click.echo(f"muxnow: Mitschnitt für Pane {target_pane} AKTIV ⏺")
 
 
 @main.command()
@@ -126,9 +126,9 @@ def status(pane: Optional[str]) -> None:
 
     target_pane = pane or get_current_pane_id()
     if is_capture_active(target_pane):
-        click.echo("#[fg=green]⏺ [aimux: ON]#[default]")
+        click.echo("#[fg=green]⏺ [muxnow: ON]#[default]")
     else:
-        click.echo("#[fg=yellow]⏸ [aimux: PAUSED]#[default]")
+        click.echo("#[fg=yellow]⏸ [muxnow: PAUSED]#[default]")
 
 
 if __name__ == "__main__":

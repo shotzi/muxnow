@@ -1,4 +1,4 @@
-"""Fail-closed secret redactor for aimux terminal capture streams."""
+"""Fail-closed secret redactor for muxnow terminal capture streams."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import re
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Pattern, Tuple
 
-logger = logging.getLogger("aimux.redactor")
+logger = logging.getLogger("muxnow.redactor")
 
 # Pre-compiled high-confidence secret patterns
 SECRET_PATTERNS: List[Tuple[str, Pattern[str]]] = [

@@ -1,4 +1,4 @@
-"""OSC 133 block parser and ANSI sequence sanitizer for aimux."""
+"""OSC 133 block parser and ANSI sequence sanitizer for muxnow."""
 
 from __future__ import annotations
 

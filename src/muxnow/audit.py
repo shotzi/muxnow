@@ -1,4 +1,4 @@
-"""Append-only JSONL audit logger for aimux actions."""
+"""Append-only JSONL audit logger for muxnow actions."""
 
 from __future__ import annotations
 
@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import List, Optional
 
-logger = logging.getLogger("aimux.audit")
+logger = logging.getLogger("muxnow.audit")
 
 
 @dataclass

@@ -1,4 +1,4 @@
-"""tmux interaction module for aimux."""
+"""tmux interaction module for muxnow."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
-logger = logging.getLogger("aimux.tmux")
+logger = logging.getLogger("muxnow.tmux")
 
 
 class TmuxError(RuntimeError):
@@ -58,7 +58,7 @@ def get_current_window_id() -> str:
 
 
 def get_pane_user_option(pane_id: str, option_name: str) -> Optional[str]:
-    """Read a pane user option (e.g. @aimux_state)."""
+    """Read a pane user option (e.g. @muxnow_state)."""
     try:
         val = run_tmux("show-options", "-p", "-t", pane_id, "-v", option_name, check=False)
         return val if val else None
@@ -67,7 +67,7 @@ def get_pane_user_option(pane_id: str, option_name: str) -> Optional[str]:
 
 
 def set_pane_user_option(pane_id: str, option_name: str, value: str) -> None:
-    """Set a pane user option (e.g. @aimux_state)."""
+    """Set a pane user option (e.g. @muxnow_state)."""
     run_tmux("set-option", "-p", "-t", pane_id, option_name, value)
 
 
@@ -76,7 +76,7 @@ def start_capture_pipe(target_pane: str, log_path: str) -> None:
     os.makedirs(os.path.dirname(log_path), exist_ok=True)
     pipe_cmd = f"cat >> '{log_path}'"
     run_tmux("pipe-pane", "-t", target_pane, "-o", pipe_cmd)
-    set_pane_user_option(target_pane, "@aimux_state", "on")
+    set_pane_user_option(target_pane, "@muxnow_state", "on")
     update_pane_border(target_pane, is_capturing=True)
 
 
@@ -84,19 +84,19 @@ def stop_capture_pipe(target_pane: str) -> None:
     """Stop pipe-pane capture for target_pane (hardware-like stop)."""
     # Empty string terminates the pipe
     run_tmux("pipe-pane", "-t", target_pane)
-    set_pane_user_option(target_pane, "@aimux_state", "off")
+    set_pane_user_option(target_pane, "@muxnow_state", "off")
     update_pane_border(target_pane, is_capturing=False)
 
 
 def is_capture_active(target_pane: str) -> bool:
     """Check whether pipe-pane capture is active on target_pane."""
-    state = get_pane_user_option(target_pane, "@aimux_state")
+    state = get_pane_user_option(target_pane, "@muxnow_state")
     return state == "on"
 
 
 def update_pane_border(target_pane: str, is_capturing: bool) -> None:
     """Update border title to visibly indicate capture state."""
-    status_icon = "⏺ [aimux: ON]" if is_capturing else "⏸ [aimux: PAUSED]"
+    status_icon = "⏺ [muxnow: ON]" if is_capturing else "⏸ [muxnow: PAUSED]"
     try:
         run_tmux("set-option", "-p", "-t", target_pane, "pane-border-status", "top", check=False)
         run_tmux(

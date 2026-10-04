@@ -1,4 +1,4 @@
-"""LiteLLM / OpenAI compatible LLM backend client for aimux."""
+"""LiteLLM / OpenAI compatible LLM backend client for muxnow."""
 
 from __future__ import annotations
 
@@ -10,12 +10,12 @@ from typing import List, Optional
 
 import httpx
 
-from aimux.config import ModelConfig
-from aimux.parser import TerminalBlock
+from muxnow.config import ModelConfig
+from muxnow.parser import TerminalBlock
 
-logger = logging.getLogger("aimux.llm")
+logger = logging.getLogger("muxnow.llm")
 
-SYSTEM_PROMPT = """You are aimux, a precise and cautious Linux/Unix terminal copilot.
+SYSTEM_PROMPT = """You are muxnow, a precise and cautious Linux/Unix terminal copilot.
 You inspect executed terminal blocks (command, output, exit code).
 Your goal:
 1. If the previous command failed (exit code != 0 or error in output), determine the root cause and propose the exact command to fix or troubleshoot it.

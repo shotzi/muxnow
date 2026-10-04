@@ -1,10 +1,10 @@
 """Tests for configuration loading."""
 
-from aimux.config import AimuxConfig
+from muxnow.config import MuxnowConfig
 
 
 def test_default_config():
-    config = AimuxConfig()
+    config = MuxnowConfig()
     assert config.model.base_url == "http://127.0.0.1:4000/v1"
     assert config.model.model == "local-default"
     assert config.capture.fail_closed is True
@@ -25,13 +25,13 @@ context_blocks = 8
 fail_closed = false
 
 [audit]
-path = "/tmp/aimux_audit.jsonl"
+path = "/tmp/muxnow_audit.jsonl"
 """)
 
-    loaded = AimuxConfig.load(config_file)
+    loaded = MuxnowConfig.load(config_file)
     assert loaded.model.base_url == "http://192.168.70.20:4000/v1"
     assert loaded.model.model == "deepseek-coder"
     assert loaded.model.timeout_s == 45.0
     assert loaded.model.context_blocks == 8
     assert loaded.capture.fail_closed is False
-    assert loaded.audit.path == "/tmp/aimux_audit.jsonl"
+    assert loaded.audit.path == "/tmp/muxnow_audit.jsonl"

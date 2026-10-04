@@ -1,7 +1,7 @@
 """Tests for the fail-closed secret redactor (Meets T6 acceptance criteria)."""
 
 import pytest
-from aimux.redactor import SecretRedactor, shannon_entropy
+from muxnow.redactor import SecretRedactor, shannon_entropy
 
 
 @pytest.fixture

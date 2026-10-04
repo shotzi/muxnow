@@ -1,4 +1,4 @@
-"""Textual TUI for the aimux sidecar assistant pane."""
+"""Textual TUI for the muxnow sidecar assistant pane."""
 
 from __future__ import annotations
 
@@ -15,13 +15,13 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.widgets import Footer, Header, Static
 
-from aimux.audit import AuditLogger
-from aimux.config import AimuxConfig
-from aimux.guard import CommandGuard
-from aimux.llm import LLMClient
-from aimux.parser import BlockParser, TerminalBlock
-from aimux.redactor import SecretRedactor
-from aimux.tmux import (
+from muxnow.audit import AuditLogger
+from muxnow.config import MuxnowConfig
+from muxnow.guard import CommandGuard
+from muxnow.llm import LLMClient
+from muxnow.parser import BlockParser, TerminalBlock
+from muxnow.redactor import SecretRedactor
+from muxnow.tmux import (
     execute_command_in_pane,
     insert_command_to_pane,
     is_capture_active,
@@ -31,7 +31,7 @@ from aimux.tmux import (
 
 
 class SidecarApp(App):
-    """Textual TUI application for the aimux sidecar assistant."""
+    """Textual TUI application for the muxnow sidecar assistant."""
 
     CSS = """
     Screen {
@@ -135,7 +135,7 @@ class SidecarApp(App):
                 ),
             )
 
-        title = f"aimux · Pane {self.target_pane} · Modell: {self.config.model.model} · Mitschnitt: [{status_icon}]"
+        title = f"muxnow · Pane {self.target_pane} · Modell: {self.config.model.model} · Mitschnitt: [{status_icon}]"
         panel = Panel(
             table,
             title=title,

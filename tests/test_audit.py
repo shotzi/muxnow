@@ -1,7 +1,7 @@
 """Tests for append-only audit logger."""
 
 import json
-from aimux.audit import AuditLogger
+from muxnow.audit import AuditLogger
 
 
 def test_audit_logging(tmp_path):

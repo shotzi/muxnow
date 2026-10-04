@@ -1,4 +1,4 @@
-"""Risk classification and command execution guard for aimux."""
+"""Risk classification and command execution guard for muxnow."""
 
 from __future__ import annotations
 

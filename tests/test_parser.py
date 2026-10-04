@@ -1,6 +1,6 @@
 """Tests for the OSC 133 block parser and ANSI sequence stripper (Meets T8)."""
 
-from aimux.parser import BlockParser, strip_ansi
+from muxnow.parser import BlockParser, strip_ansi
 
 
 def test_strip_ansi_color_and_escapes():
