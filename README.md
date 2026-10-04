@@ -1,19 +1,20 @@
-# muxnow — AI-Sidecar für tmux
+# muxnow — AI-Sidecar für tmux 🚀
 
-> **Intelligente Terminal-Assistenz ohne Kontrollverlust.**
-> Unten die gewohnte Shell/SSH-Session, darüber ein schlankes Sidecar-Fenster, das Eingaben und Ausgaben mitliest, Fehler analysiert, Befehlssyntax vorschlägt und auf Knopfdruck einfügt oder ausführt.
+> **Intelligente Terminal-Assistenz ohne Kontrollverlust.**  
+> Unten deine gewohnte Shell- oder SSH-Session, darüber ein schlankes TUI-Sidecar (Textual), das Ein- und Ausgaben mitliest, Fehler analysiert, Befehlssyntax vorschlägt und interaktive Fragen im Terminalkontext beantwortet.
 >
-> **Mit verlässlichem Hardware-artigen Mitschnitt-Stopp (`pipe-pane`) und Fail-Closed Secret-Redaktion.**
+> **Mit verlässlichem Hardware-artigen Mitschnitt-Stopp (`pipe-pane`), interaktivem Prompt und Fail-Closed Secret-Redaktion.**
 
 ---
 
-## 🎯 Kernprinzipien
+## 🎯 Highlights
 
-1. **Der Assistent ist Vorschlagender, nicht Ausführender:** Befehle werden erst nach expliziter Bestätigung ausgeführt (`prefix + I`) oder gefahrlos in die Eingabezeile eingefügt (`prefix + i`).
-2. **Echter Mitschnitt-Stopp:** Ein Keybind (`prefix + A`) schaltet den Mitschnitt via `tmux pipe-pane` hardware-nah ab. Während der Pause verlässt kein einziges Byte die lokale Maschine.
-3. **Fail-Closed Secret Redactor:** Vor jeder Modell-Anfrage werden Passwörter, Private Keys, Bearer Tokens, JWTs und Cloud-Keys geschwärzt. Schlägt der Redaktor fehl oder ist unsicher, wird **nichts** versendet.
-4. **Local First:** Standardmäßig angebunden an das lokale LiteLLM-Gateway (`http://127.0.0.1:4000/v1`) oder Ollama.
-5. **Audit-Trail:** Jede Aktion wird unveränderbar in einem append-only JSONL-Audit-Log protokolliert (inkl. SHA256-Hashes, Risikoklassen, Aktionsarten).
+- 💬 **Interaktiver Kontext-Chat:** Stelle oben direkt Fragen in natürlicher Sprache (z. B. *„Wieviel Platz wird in Summe belegt?“* oder *„Zeig mir die 5 größten Ordner“*). `muxnow` liest den Terminal-Puffer und generiert den passenden Befehl samt Erklärung und Risikoeinstufung.
+- ⚡ **Einfügen ohne Blindflug:** Mit `prefix + i` wird der vorgeschlagene Befehl direkt in deine Shell getippt — **ohne** Enter. Du behältst immer die volle Kontrolle.
+- 🛑 **Echter Mitschnitt-Stopp:** Mit `prefix + p` pausierst du den Mitschnitt via `tmux pipe-pane`. Während der Pause verlässt kein einziges Byte deinen Rechner.
+- 🔒 **Fail-Closed Secret Redactor:** Vor jeder Modell-Anfrage werden Passwörter, Private Keys, Bearer Tokens, JWTs und Cloud-Keys geschwärzt.
+- 🌐 **Modell-Flexibilität:** Funktioniert nahtlos mit OpenAI-kompatiblen Endpunkten (z. B. DeepSeek, LiteLLM, Ollama, vLLM).
+- 📜 **Audit-Trail:** Jede Aktion wird unveränderbar in einem append-only JSONL-Audit-Log protokolliert (inkl. SHA256-Hashes, Risikoklassen, Zeitstempel).
 
 ---
 
@@ -21,27 +22,31 @@
 
 | Taste | Aktion | Beschreibung |
 |---|---|---|
-| `prefix + a` | **Sidecar umschalten** | Assistenten-Pane ein- oder ausblenden |
-| `prefix + A` | **Mitschnitt Pause/Start** | Mitschnitt (`pipe-pane`) sofort anhalten bzw. fortsetzen |
-| `prefix + i` | **Vorschlag einfügen** | Schreibt den Befehl in die Shell — **ohne** Enter |
-| `prefix + I` | **Vorschlag ausführen** | Ausführung nach Bestätigungsdialog (mit Risiko-Warnung) |
-| `prefix + ?` | **Output erklären** | Letzten Block gezielt analysieren lassen |
-| `prefix + e` | **Replay exportieren** | Mitschnitt als sauberes Markdown exportieren |
+| `prefix + Tab` | **Fokus wechseln** | Wechselt zwischen Eingabezeile des Assistenten und deiner Shell |
+| `Esc` *(im Prompt)* | **Zurück zur Shell** | Springt aus dem Chat-Prompt sofort wieder in die Shell |
+| `prefix + i` | **Vorschlag einfügen** | Schreibt den Befehl in die untere Shell — **ohne** Enter |
+| `prefix + p` | **Mitschnitt Pause/Start** | Schaltet `pipe-pane` sofort an/aus (mit Live-Statusanzeige) |
+| `prefix + a` | **Sidecar umschalten** | Assistenten-Pane oben temporär ein- oder ausblenden |
+| `prefix + e` | **Replay exportieren** | Letzte Interaktionen als sauberes Markdown exportieren |
+
+*(Hinweis: `prefix` ist standardmäßig `Ctrl + b`)*
 
 ---
 
 ## 🏗️ Architektur
 
-```
+```text
 ┌── tmux-Session "muxnow" ─────────────────────────────────────────────┐
-│  Pane 2 (oben)   muxnow-assistant (Textual TUI)                      │
-│                  liest Blöcke, befragt Modell, zeigt Risikostufen    │
-│  Pane 1 (unten)  Shell / SSH ── pipe-pane ──► muxnow capture queue    │
+│  Pane %1 (oben)   muxnow-assistant (Textual TUI)                     │
+│                   Interaktiver Chat, Befehlsvorschläge, Risikostufe  │
+│                   Eingabezeile mit Esc-Fokuswechsel                  │
+├──────────────────────────────────────────────────────────────────────┤
+│  Pane %0 (unten)  Shell / SSH ── pipe-pane ──► muxnow capture queue  │
 └──────────────────────────────────────────────────────────────────────┘
          ▲                                                  │
          │ Send-Queue (Blöcke)                              │ Vorschlag
          │                                                  ▼
-    muxnow-daemon  ── Block-Parser (OSC 133) ── Redactor ── LiteLLM / Ollama
+    muxnow-daemon  ── Block-Parser (OSC 133) ── Redactor ── LLM (DeepSeek / LiteLLM / Ollama)
                    └─ Audit-Log (JSONL)
 ```
 
@@ -49,19 +54,54 @@
 
 ## 🚀 Installation & Schnellstart
 
-```bash
-# Mit uv installieren
-uv pip install -e .
+### 1. Installation
 
-# Session starten
+Mit [`uv`](https://github.com/astral-sh/uv) (empfohlen):
+```bash
+# Direkt als isoliertes CLI-Tool installieren
+uv tool install --editable .
+```
+
+Oder klassisch via `pip`:
+```bash
+pip install -e .
+```
+
+### 2. Konfiguration
+
+Erstelle die Datei `~/.config/muxnow/config.toml`:
+
+```toml
+# Beispiel: DeepSeek API direkt
+model = "deepseek-flash"
+base_url = "https://api.deepseek.com/v1"
+api_key = "sk-..."
+
+# Oder lokales LiteLLM / Ollama:
+# model = "qwen2.5-coder:7b"
+# base_url = "http://127.0.0.1:11434/v1"
+
+# Sicherheitseinstellungen
+risk_threshold = "medium"
+mask_secrets = true
+```
+
+*Alternativ kann der Key auch über die Umgebungsvariable `MUXNOW_API_KEY` gesetzt werden.*
+
+### 3. Starten
+
+```bash
+# Startet tmux mit geteiltem Fenster (Assistent oben, Shell unten):
 muxnow start
 
-# Oder in bestehende tmux-Session einklinken
-muxnow attach
+# Wenn die Session bereits läuft, verbindet sich `muxnow start` automatisch.
+# Beenden der Session:
+muxnow stop
 ```
 
 ---
 
 ## 🛡️ Lizenz
 
-MIT License – siehe [LICENSE](LICENSE).
+MIT License – Copyright (c) 2026 Sascha Hotz. Siehe [LICENSE](LICENSE).
+
