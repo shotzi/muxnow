@@ -1,0 +1,24 @@
+[model]
+# Standard-Gateway: LiteLLM auf CT 200 oder lokal (z.B. LM Studio / Ollama auf 127.0.0.1)
+base_url = "http://192.168.70.20:4000/v1"
+model = "deepseek-coder"
+timeout_s = 60.0
+context_blocks = 5
+
+[capture]
+skip_prompt_lines = true
+fail_closed = true
+
+[guard]
+deny_patterns = [
+    "(?i)\\brm\\s+-rf\\s+/",
+    "\\bmkfs\\b",
+    "\\bdd\\s+if=",
+    "iptables\\s+-F",
+    ">\\s*/dev/sd",
+    "(?i)\\b(shutdown|reboot|poweroff|init\\s+0)\\b"
+]
+require_confirm = ["destructive", "write"]
+
+[audit]
+path = "~/.local/state/muxnow/audit.jsonl"
