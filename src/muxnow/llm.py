@@ -47,6 +47,11 @@ class LLMClient:
         self.config = config
         self.base_url = config.base_url.rstrip("/")
         self.endpoint = f"{self.base_url}/chat/completions"
+        self.headers: dict[str, str] = {
+            "Content-Type": "application/json",
+        }
+        if config.api_key:
+            self.headers["Authorization"] = f"Bearer {config.api_key}"
 
     async def get_suggestion(
         self,
@@ -83,7 +88,7 @@ class LLMClient:
         }
 
         try:
-            async with httpx.AsyncClient(timeout=self.config.timeout_s) as client:
+            async with httpx.AsyncClient(timeout=self.config.timeout_s, headers=self.headers) as client:
                 resp = await client.post(self.endpoint, json=payload)
                 resp.raise_for_status()
                 data = resp.json()
