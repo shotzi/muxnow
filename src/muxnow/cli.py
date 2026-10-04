@@ -34,10 +34,30 @@ def main() -> None:
     pass
 
 
+def session_exists(session_name: str) -> bool:
+    """Check if a tmux session already exists."""
+    import subprocess
+    res = subprocess.run(
+        ["tmux", "has-session", "-t", session_name],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    return res.returncode == 0
+
+
 @main.command()
 @click.option("--session", "-s", default="muxnow", help="Name der tmux Session")
-def start(session: str) -> None:
-    """Neue muxnow-Session mit automatischem Sidecar-Layout starten."""
+@click.option("--restart", "-r", is_flag=True, help="Bestehende Session vorher beenden")
+def start(session: str, restart: bool) -> None:
+    """Neue muxnow-Session starten oder mit bestehender Session verbinden."""
+    if session_exists(session):
+        if restart:
+            click.echo(f"Beende bestehende Session '{session}'...")
+            run_tmux("kill-session", "-t", session, check=False)
+        else:
+            click.echo(f"muxnow Session '{session}' existiert bereits. Verbinde...")
+            os.execvp("tmux", ["tmux", "attach-session", "-t", session])
+
     DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_file = DEFAULT_LOG_DIR / f"{session}_capture.log"
 
@@ -64,6 +84,34 @@ def start(session: str) -> None:
     click.echo(f"muxnow Session '{session}' gestartet. Verbinde...")
     # Attach to session
     os.execvp("tmux", ["tmux", "attach-session", "-t", session])
+
+
+@main.command()
+@click.option("--session", "-s", default="muxnow", help="Name der tmux Session")
+def stop(session: str) -> None:
+    """Laufende muxnow-Session beenden."""
+    if not session_exists(session):
+        click.echo(f"Keine laufende Session '{session}' gefunden.")
+        return
+    try:
+        run_tmux("kill-session", "-t", session)
+        click.echo(f"muxnow Session '{session}' wurde beendet.")
+    except Exception as e:
+        click.echo(f"Fehler beim Beenden der Session: {e}", err=True)
+
+
+@main.command()
+@click.option("--session", "-s", default="muxnow", help="Name der tmux Session")
+def kill(session: str) -> None:
+    """Laufende muxnow-Session beenden (Alias für stop)."""
+    if not session_exists(session):
+        click.echo(f"Keine laufende Session '{session}' gefunden.")
+        return
+    try:
+        run_tmux("kill-session", "-t", session)
+        click.echo(f"muxnow Session '{session}' wurde beendet.")
+    except Exception as e:
+        click.echo(f"Fehler beim Beenden der Session: {e}", err=True)
 
 
 @main.command()
