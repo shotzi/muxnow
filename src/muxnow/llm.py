@@ -121,6 +121,64 @@ class LLMClient:
                 error_message=msg,
             )
 
+    async def ask_question(
+        self,
+        question: str,
+        latest_block: Optional[TerminalBlock] = None,
+        history: Optional[List[TerminalBlock]] = None,
+    ) -> LLMResponse:
+        """Answer an interactive user question with current terminal context."""
+        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+
+        if history:
+            for b in history[-self.config.context_blocks :]:
+                messages.append({
+                    "role": "user",
+                    "content": f"Past Command: {b.command}\nExit Code: {b.exit_code}\nOutput:\n{b.output[:500]}",
+                })
+
+        context_text = ""
+        if latest_block:
+            context_text = (
+                f"Current Terminal Context:\n"
+                f"Command: {latest_block.command}\n"
+                f"Exit Code: {latest_block.exit_code}\n"
+                f"Output:\n{latest_block.output[:1500]}\n\n"
+            )
+
+        messages.append({
+            "role": "user",
+            "content": f"{context_text}User Question: {question}\nProvide the best answer and recommended command if applicable in the required JSON format.",
+        })
+
+        payload = {
+            "model": self.config.model,
+            "messages": messages,
+            "temperature": 0.2,
+            "max_tokens": 1000,
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=self.config.timeout_s, headers=self.headers) as client:
+                resp = await client.post(self.endpoint, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+
+            msg_obj = data["choices"][0]["message"]
+            raw_reply = (msg_obj.get("content") or "").strip()
+            if not raw_reply and msg_obj.get("reasoning_content"):
+                raw_reply = msg_obj["reasoning_content"].strip()
+
+            return self._parse_json_reply(raw_reply)
+        except Exception as e:
+            return LLMResponse(
+                suggestion="",
+                explanation=f"Fehler bei Anfrage: {e}",
+                risk_level="read-only",
+                is_available=False,
+                error_message=str(e),
+            )
+
     def _parse_json_reply(self, raw: str) -> LLMResponse:
         # Strip potential markdown fences
         clean = re.sub(r"^```(?:json)?\s*", "", raw)

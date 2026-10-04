@@ -79,7 +79,7 @@ def start(session: str, restart: bool) -> None:
 
     # Split window for sidecar top pane
     assistant_cmd = f"muxnow sidecar --pane '{shell_pane}' --log '{log_file}'"
-    run_tmux("split-window", "-t", session, "-b", "-v", "-l", "12", assistant_cmd)
+    run_tmux("split-window", "-t", session, "-b", "-v", "-l", "14", assistant_cmd)
 
     # Switch focus back to shell pane
     run_tmux("select-pane", "-t", shell_pane)
@@ -133,7 +133,7 @@ def attach(pane: Optional[str]) -> None:
     start_capture_pipe(target_pane, str(log_file))
 
     assistant_cmd = f"muxnow sidecar --pane '{target_pane}' --log '{log_file}'"
-    run_tmux("split-window", "-b", "-v", "-l", "12", assistant_cmd)
+    run_tmux("split-window", "-b", "-v", "-l", "14", assistant_cmd)
     run_tmux("select-pane", "-t", target_pane)
     click.echo(f"muxnow Sidecar für Pane {target_pane} aktiviert.")
 

@@ -13,7 +13,7 @@ from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Header, Input, Static
 
 from muxnow.audit import AuditLogger
 from muxnow.config import MuxnowConfig
@@ -25,6 +25,7 @@ from muxnow.tmux import (
     execute_command_in_pane,
     insert_command_to_pane,
     is_capture_active,
+    run_tmux,
     start_capture_pipe,
     stop_capture_pipe,
 )
@@ -39,17 +40,25 @@ class SidecarApp(App):
         color: #f3f4f6;
     }
     #assistant_panel {
-        height: 100%;
+        height: 1fr;
         padding: 0 1;
+    }
+    #chat_input {
+        dock: bottom;
+        margin: 0 1;
+        border: tall #3b82f6;
+        background: #1f2937;
+        color: #ffffff;
+    }
+    #chat_input:focus {
+        border: tall #10b981;
     }
     """
 
     BINDINGS = [
-        Binding("i", "insert_suggestion", "Einfügen (⇥)", priority=True),
-        Binding("enter", "execute_suggestion", "Ausführen (⏎)", priority=True),
-        Binding("p", "toggle_pause", "Pause/Start (⏸)", priority=True),
-        Binding("c", "copy_suggestion", "Kopieren", priority=True),
-        Binding("q", "quit_app", "Beenden", priority=True),
+        Binding("escape", "return_to_shell", "Zurück zur Shell (Esc)", priority=False),
+        Binding("ctrl+p", "toggle_pause", "Pause/Start", priority=False),
+        Binding("ctrl+c", "quit_app", "Beenden", priority=False),
     ]
 
     def __init__(
@@ -73,7 +82,7 @@ class SidecarApp(App):
         self.audit = AuditLogger(self.config.audit.path)
 
         self.current_suggestion: str = ""
-        self.current_explanation: str = "Warte auf Terminal-Aktivität..."
+        self.current_explanation: str = "Warte auf Terminal-Aktivität oder tippe eine Frage..."
         self.current_risk: str = "read-only"
         self.is_capturing: bool = True
         self.redaction_count: int = 0
@@ -81,6 +90,10 @@ class SidecarApp(App):
 
     def compose(self) -> ComposeResult:
         yield Static(id="assistant_panel")
+        yield Input(
+            placeholder="💬 Frage an KI eingeben (Enter = Senden, Esc = Zurück zur Shell)...",
+            id="chat_input",
+        )
         yield Footer()
 
     async def on_mount(self) -> None:
@@ -227,6 +240,53 @@ class SidecarApp(App):
                 pass
 
             self.update_display()
+
+    async def on_input_submitted(self, event: Input.Submitted) -> None:
+        """Handle interactive user questions typed into the top pane."""
+        user_query = event.value.strip()
+        if not user_query:
+            return
+
+        input_widget = self.query_one("#chat_input", Input)
+        input_widget.value = ""
+
+        self.current_explanation = f"🤔 Frage an {self.config.model.model}: '{user_query}'..."
+        self.update_display()
+
+        latest_b = self.parser.completed_blocks[-1] if self.parser.completed_blocks else None
+        resp = await self.llm.ask_question(
+            question=user_query,
+            latest_block=latest_b,
+            history=self.parser.completed_blocks[:-1],
+        )
+
+        self.current_suggestion = resp.suggestion
+        self.current_explanation = resp.explanation
+        assessment = self.guard.assess(resp.suggestion)
+        self.current_risk = assessment.level
+
+        # Persist suggestion
+        try:
+            sugg_file = (
+                Path.home()
+                / ".local"
+                / "state"
+                / "muxnow"
+                / f"{self.target_pane.replace('%', 'p')}_suggestion.txt"
+            )
+            sugg_file.parent.mkdir(parents=True, exist_ok=True)
+            sugg_file.write_text(resp.suggestion or "", encoding="utf-8")
+        except Exception:
+            pass
+
+        self.update_display()
+
+    def action_return_to_shell(self) -> None:
+        """Switch focus back to the shell pane."""
+        try:
+            run_tmux("select-pane", "-t", self.target_pane, check=False)
+        except Exception:
+            pass
 
     def action_insert_suggestion(self) -> None:
         """Keybind: prefix + i / 'i' -> insert into shell without execution."""
