@@ -18,6 +18,7 @@ from textual.widgets import Footer, Header, Input, Static
 from muxnow.audit import AuditLogger
 from muxnow.config import MuxnowConfig
 from muxnow.guard import CommandGuard
+from muxnow.i18n import t
 from muxnow.llm import LLMClient
 from muxnow.parser import BlockParser, TerminalBlock
 from muxnow.redactor import SecretRedactor
@@ -56,9 +57,9 @@ class SidecarApp(App):
     """
 
     BINDINGS = [
-        Binding("escape", "return_to_shell", "Zurück zur Shell (Esc)", priority=False),
-        Binding("ctrl+p", "toggle_pause", "Pause/Start", priority=False),
-        Binding("ctrl+c", "quit_app", "Beenden", priority=False),
+        Binding("escape", "return_to_shell", "Back to Shell (Esc)", priority=False),
+        Binding("ctrl+p", "toggle_pause", "Pause/Resume", priority=False),
+        Binding("ctrl+c", "quit_app", "Quit", priority=False),
     ]
 
     def __init__(
@@ -71,6 +72,7 @@ class SidecarApp(App):
         self.target_pane = target_pane
         self.capture_log = Path(capture_log)
         self.config = config or MuxnowConfig.load()
+        self.language = self.config.language
 
         self.redactor = SecretRedactor(
             custom_patterns=self.config.capture.redact_patterns,
@@ -78,11 +80,11 @@ class SidecarApp(App):
         )
         self.parser = BlockParser()
         self.guard = CommandGuard(deny_patterns=self.config.guard.deny_patterns)
-        self.llm = LLMClient(self.config.model)
+        self.llm = LLMClient(self.config.model, language=self.language)
         self.audit = AuditLogger(self.config.audit.path)
 
         self.current_suggestion: str = ""
-        self.current_explanation: str = "Warte auf Terminal-Aktivität oder tippe eine Frage..."
+        self.current_explanation: str = t("waiting", self.language)
         self.current_risk: str = "read-only"
         self.is_capturing: bool = True
         self.redaction_count: int = 0
@@ -91,7 +93,7 @@ class SidecarApp(App):
     def compose(self) -> ComposeResult:
         yield Static(id="assistant_panel")
         yield Input(
-            placeholder="💬 Frage an KI eingeben (Enter = Senden, Esc = Zurück zur Shell)...",
+            placeholder=t("input_placeholder", self.language),
             id="chat_input",
         )
         yield Footer()
@@ -106,8 +108,11 @@ class SidecarApp(App):
         panel_widget = self.query_one("#assistant_panel", Static)
 
         # Build Status Line
-        status_icon = "⏺ AN" if self.is_capturing else "⏸ PAUSIERT"
-        status_style = "bold green" if self.is_capturing else "bold yellow"
+        status_icon = (
+            t("status_on", self.language)
+            if self.is_capturing
+            else t("status_paused", self.language)
+        )
 
         table = Table.grid(padding=(0, 2))
         table.add_column(style="bold cyan", width=14)
@@ -127,28 +132,28 @@ class SidecarApp(App):
             sugg_text.append(self.current_suggestion, style=risk_color)
             sugg_text.append(f"  [{self.current_risk.upper()}]", style="dim " + risk_color)
         else:
-            sugg_text.append("(keine Aktion erforderlich)", style="dim")
+            sugg_text.append(t("no_action", self.language), style="dim")
 
-        table.add_row("Vorschlag", sugg_text)
-        table.add_row("Warum", Text(self.current_explanation, style="white"))
+        table.add_row(t("suggestion", self.language), sugg_text)
+        table.add_row(t("why", self.language), Text(self.current_explanation, style="white"))
 
         # Redaction info
         if self.redaction_count > 0:
             table.add_row(
-                "Sicherheit",
-                Text(f"🛡️ {self.redaction_count} Secrets vor Versand geschwärzt", style="bold green"),
+                t("security", self.language),
+                Text(t("secrets_redacted", self.language, count=self.redaction_count), style="bold green"),
             )
 
         if self.is_confirming_execution:
             table.add_row(
-                "BESTÄTIGUNG",
+                "CONFIRM",
                 Text(
-                    f"⚠️ Wirklich ausführen? Drücke ENTER zur Bestätigung oder eine beliebige andere Taste zum Abbrechen.",
+                    t("confirm_exec", self.language),
                     style="bold red blink",
                 ),
             )
 
-        title = f"muxnow · Pane {self.target_pane} · Modell: {self.config.model.model} · Mitschnitt: [{status_icon}]"
+        title = f"muxnow · Pane {self.target_pane} · {t('model', self.language)}: {self.config.model.model} · {t('recording', self.language)}: [{status_icon}]"
         panel = Panel(
             table,
             title=title,
@@ -196,10 +201,7 @@ class SidecarApp(App):
             redacted_cmd = self.redactor.redact(block.command)
 
             if not (redacted_output.is_safe and redacted_cmd.is_safe):
-                self.current_explanation = (
-                    "⚠️ Fail-Closed ausgelöst: Unredaktierbares Geheimnis erkannt. "
-                    "Kein Modell-Versand erfolgt!"
-                )
+                self.current_explanation = t("fail_closed", self.language)
                 self.current_suggestion = ""
                 self.update_display()
                 continue
@@ -250,7 +252,7 @@ class SidecarApp(App):
         input_widget = self.query_one("#chat_input", Input)
         input_widget.value = ""
 
-        self.current_explanation = f"🤔 Frage an {self.config.model.model}: '{user_query}'..."
+        self.current_explanation = t("asking_model", self.language, model=self.config.model.model, query=user_query)
         self.update_display()
 
         latest_b = self.parser.completed_blocks[-1] if self.parser.completed_blocks else None
@@ -299,7 +301,7 @@ class SidecarApp(App):
             command_suggested=self.current_suggestion,
             pane_id=self.target_pane,
         )
-        self.current_explanation = f"Befehl '{self.current_suggestion}' in Eingabezeile eingefügt."
+        self.current_explanation = t("cmd_inserted", self.language, cmd=self.current_suggestion)
         self.update_display()
 
     def action_execute_suggestion(self) -> None:
@@ -321,7 +323,7 @@ class SidecarApp(App):
             command_suggested=self.current_suggestion,
             pane_id=self.target_pane,
         )
-        self.current_explanation = f"Befehl '{self.current_suggestion}' ausgeführt."
+        self.current_explanation = t("cmd_executed", self.language, cmd=self.current_suggestion)
         self.current_suggestion = ""
         self.update_display()
 
@@ -331,10 +333,18 @@ class SidecarApp(App):
             stop_capture_pipe(self.target_pane)
             self.is_capturing = False
             self.audit.log(action="paused", pane_id=self.target_pane)
+            try:
+                run_tmux("display-message", t("toast_paused", self.language), check=False)
+            except Exception:
+                pass
         else:
             start_capture_pipe(self.target_pane, str(self.capture_log))
             self.is_capturing = True
             self.audit.log(action="resumed", pane_id=self.target_pane)
+            try:
+                run_tmux("display-message", t("toast_active", self.language), check=False)
+            except Exception:
+                pass
         self.update_display()
 
     def action_copy_suggestion(self) -> None:
@@ -344,9 +354,10 @@ class SidecarApp(App):
                 import subprocess
                 p = subprocess.Popen(["pbcopy"], stdin=subprocess.PIPE)
                 p.communicate(self.current_suggestion.encode("utf-8"))
-                self.current_explanation = "Befehl in Zwischenablage kopiert."
+                self.current_explanation = t("cmd_copied", self.language)
                 self.update_display()
             except Exception:
+                pass
                 pass
 
     def action_quit_app(self) -> None:

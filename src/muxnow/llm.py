@@ -11,23 +11,28 @@ from typing import List, Optional
 import httpx
 
 from muxnow.config import ModelConfig
+from muxnow.i18n import t
 from muxnow.parser import TerminalBlock
 
 logger = logging.getLogger("muxnow.llm")
 
-SYSTEM_PROMPT = """You are muxnow, a precise and cautious Linux/Unix terminal copilot.
+
+def build_system_prompt(language: str = "en") -> str:
+    lang_instr = t("llm_instruction", lang=language)
+    return f"""You are muxnow, a precise and cautious Linux/Unix terminal copilot.
 You inspect executed terminal blocks (command, output, exit code).
 Your goal:
 1. If the previous command failed (exit code != 0 or error in output), determine the root cause and propose the exact command to fix or troubleshoot it.
 2. If the command succeeded, propose the next logical command or leave suggestion empty if no action is needed.
-3. Be strictly concise. Do NOT add markdown blocks or chatter.
+3. Be strictly concise. Do NOT add markdown blocks or conversational chatter.
+4. {lang_instr}
 
 You MUST respond strictly with a valid JSON object with these 3 keys:
-{
+{{
   "suggestion": "command string or empty string",
   "explanation": "concise explanation of why this command is needed (1-2 sentences)",
   "risk_level": "read-only" | "write" | "destructive"
-}
+}}
 """
 
 
@@ -43,8 +48,9 @@ class LLMResponse:
 class LLMClient:
     """Interacts with LiteLLM Gateway or Ollama."""
 
-    def __init__(self, config: ModelConfig) -> None:
+    def __init__(self, config: ModelConfig, language: str = "en") -> None:
         self.config = config
+        self.language = language
         self.base_url = config.base_url.rstrip("/")
         self.endpoint = f"{self.base_url}/chat/completions"
         self.headers: dict[str, str] = {
@@ -53,13 +59,17 @@ class LLMClient:
         if config.api_key:
             self.headers["Authorization"] = f"Bearer {config.api_key}"
 
+    @property
+    def system_prompt(self) -> str:
+        return build_system_prompt(self.language)
+
     async def get_suggestion(
         self,
         latest_block: TerminalBlock,
         history: Optional[List[TerminalBlock]] = None,
     ) -> LLMResponse:
         """Call LLM API with terminal context and parse structured suggestion."""
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": self.system_prompt}]
 
         # Append historical blocks if provided
         if history:
@@ -101,7 +111,7 @@ class LLMClient:
             return self._parse_json_reply(raw_reply)
 
         except httpx.ConnectError:
-            msg = f"Modell-Endpunkt {self.base_url} nicht erreichbar (Offline/Rückfall)."
+            msg = t("endpoint_unreachable", self.language, url=self.base_url)
             logger.warning(msg)
             return LLMResponse(
                 suggestion="",
@@ -111,7 +121,7 @@ class LLMClient:
                 error_message=msg,
             )
         except Exception as e:
-            msg = f"Fehler bei Modellanfrage: {e}"
+            msg = t("request_error", self.language, error=str(e))
             logger.error(msg)
             return LLMResponse(
                 suggestion="",
@@ -128,7 +138,7 @@ class LLMClient:
         history: Optional[List[TerminalBlock]] = None,
     ) -> LLMResponse:
         """Answer an interactive user question with current terminal context."""
-        messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+        messages = [{"role": "system", "content": self.system_prompt}]
 
         if history:
             for b in history[-self.config.context_blocks :]:
@@ -171,9 +181,10 @@ class LLMClient:
 
             return self._parse_json_reply(raw_reply)
         except Exception as e:
+            msg = t("request_error", self.language, error=str(e))
             return LLMResponse(
                 suggestion="",
-                explanation=f"Fehler bei Anfrage: {e}",
+                explanation=msg,
                 risk_level="read-only",
                 is_available=False,
                 error_message=str(e),

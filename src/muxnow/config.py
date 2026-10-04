@@ -74,6 +74,7 @@ class MuxnowConfig:
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     guard: GuardConfig = field(default_factory=GuardConfig)
     audit: AuditConfig = field(default_factory=AuditConfig)
+    language: str = "en"
 
     @classmethod
     def load(cls, path: Path | str | None = None) -> MuxnowConfig:
@@ -87,24 +88,60 @@ class MuxnowConfig:
                 data = {}
 
         m_data = data.get("model", {})
+        if not isinstance(m_data, dict):
+            # If specified as flat string (e.g. model = "deepseek-flash")
+            m_data = {"model": m_data}
+
         c_data = data.get("capture", {})
+        if not isinstance(c_data, dict):
+            c_data = {}
+
         g_data = data.get("guard", {})
+        if not isinstance(g_data, dict):
+            g_data = {}
+
         a_data = data.get("audit", {})
+        if not isinstance(a_data, dict):
+            a_data = {}
 
         api_key = (
             m_data.get("api_key")
+            or data.get("api_key")
             or m_data.get("token")
+            or data.get("token")
             or os.environ.get("MUXNOW_API_KEY")
             or os.environ.get("OPENAI_API_KEY")
         )
 
+        base_url = (
+            m_data.get("base_url")
+            or data.get("base_url")
+            or "http://127.0.0.1:4000/v1"
+        )
+
+        model_name = (
+            m_data.get("model")
+            or data.get("model")
+            or "deepseek-flash"
+        )
+
+        lang = (
+            data.get("language")
+            or data.get("lang")
+            or data.get("ui", {}).get("language")
+            or os.environ.get("MUXNOW_LANG")
+            or "en"
+        ).strip().lower()
+        if lang not in ("en", "de"):
+            lang = "en"
+
         return cls(
             model=ModelConfig(
-                base_url=m_data.get("base_url", "http://127.0.0.1:4000/v1"),
-                model=m_data.get("model", "deepseek-flash"),
+                base_url=base_url,
+                model=model_name,
                 api_key=api_key,
-                timeout_s=float(m_data.get("timeout_s", 60.0)),
-                context_blocks=int(m_data.get("context_blocks", 5)),
+                timeout_s=float(m_data.get("timeout_s", data.get("timeout_s", 60.0))),
+                context_blocks=int(m_data.get("context_blocks", data.get("context_blocks", 5))),
             ),
             capture=CaptureConfig(
                 redact_patterns=c_data.get("redact_patterns", CaptureConfig().redact_patterns),
@@ -116,8 +153,9 @@ class MuxnowConfig:
                 require_confirm=g_data.get("require_confirm", ["destructive", "write"]),
             ),
             audit=AuditConfig(
-                path=a_data.get("path", "~/.local/state/muxnow/audit.jsonl")
+                path=a_data.get("path", data.get("audit_path", "~/.local/state/muxnow/audit.jsonl"))
             ),
+            language=lang,
         )
 
 

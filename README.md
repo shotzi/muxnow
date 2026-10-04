@@ -83,6 +83,9 @@ pip install -e .
 Create your configuration file at `~/.config/muxnow/config.toml`:
 
 ```toml
+# Language setting: "en" (default) or "de"
+language = "en"
+
 # Example: Direct DeepSeek API
 model = "deepseek-flash"
 base_url = "https://api.deepseek.com/v1"

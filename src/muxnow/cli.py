@@ -11,6 +11,7 @@ import click
 
 from muxnow import __version__
 from muxnow.config import MuxnowConfig
+from muxnow.i18n import t
 from muxnow.tmux import (
     TmuxError,
     create_sidecar_layout,
@@ -33,7 +34,7 @@ DEFAULT_LOG_DIR = Path.home() / ".local" / "state" / "muxnow"
 @click.group()
 @click.version_option(version=__version__)
 def main() -> None:
-    """muxnow - AI-Sidecar für tmux mit verlässlicher Pause und Fail-Closed Redaktion."""
+    """muxnow - AI sidecar for tmux with reliable pause and fail-closed secret redaction."""
     pass
 
 
@@ -49,16 +50,19 @@ def session_exists(session_name: str) -> bool:
 
 
 @main.command()
-@click.option("--session", "-s", default="muxnow", help="Name der tmux Session")
-@click.option("--restart", "-r", is_flag=True, help="Bestehende Session vorher beenden")
+@click.option("--session", "-s", default="muxnow", help="Name of tmux session")
+@click.option("--restart", "-r", is_flag=True, help="Terminate existing session beforehand")
 def start(session: str, restart: bool) -> None:
-    """Neue muxnow-Session starten oder mit bestehender Session verbinden."""
+    """Start a new muxnow session or attach to an existing one."""
+    cfg = MuxnowConfig.load()
+    lang = cfg.language
+
     if session_exists(session):
         if restart:
-            click.echo(f"Beende bestehende Session '{session}'...")
+            click.echo(t("session_stopping", lang, session=session))
             run_tmux("kill-session", "-t", session, check=False)
         else:
-            click.echo(f"muxnow Session '{session}' existiert bereits. Verbinde...")
+            click.echo(t("session_exists", lang, session=session))
             os.execvp("tmux", ["tmux", "attach-session", "-t", session])
 
     DEFAULT_LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -68,7 +72,7 @@ def start(session: str, restart: bool) -> None:
     try:
         run_tmux("new-session", "-d", "-s", session)
     except TmuxError as e:
-        click.echo(f"Fehler beim Erstellen der Session: {e}", err=True)
+        click.echo(f"Error creating session: {e}", err=True)
         sys.exit(1)
 
     # Get bottom shell pane id
@@ -84,37 +88,41 @@ def start(session: str, restart: bool) -> None:
     # Switch focus back to shell pane
     run_tmux("select-pane", "-t", shell_pane)
 
-    click.echo(f"muxnow Session '{session}' gestartet. Verbinde...")
+    click.echo(t("session_started", lang, session=session))
     # Attach to session
     os.execvp("tmux", ["tmux", "attach-session", "-t", session])
 
 
 @main.command()
-@click.option("--session", "-s", default="muxnow", help="Name der tmux Session")
+@click.option("--session", "-s", default="muxnow", help="Name of tmux session")
 def stop(session: str) -> None:
-    """Laufende muxnow-Session beenden."""
+    """Terminate running muxnow session."""
+    cfg = MuxnowConfig.load()
+    lang = cfg.language
     if not session_exists(session):
-        click.echo(f"Keine laufende Session '{session}' gefunden.")
+        click.echo(t("no_session", lang, session=session))
         return
     try:
         run_tmux("kill-session", "-t", session)
-        click.echo(f"muxnow Session '{session}' wurde beendet.")
+        click.echo(t("session_stopped", lang, session=session))
     except Exception as e:
-        click.echo(f"Fehler beim Beenden der Session: {e}", err=True)
+        click.echo(f"Error stopping session: {e}", err=True)
 
 
 @main.command()
-@click.option("--session", "-s", default="muxnow", help="Name der tmux Session")
+@click.option("--session", "-s", default="muxnow", help="Name of tmux session")
 def kill(session: str) -> None:
-    """Laufende muxnow-Session beenden (Alias für stop)."""
+    """Terminate running muxnow session (alias for stop)."""
+    cfg = MuxnowConfig.load()
+    lang = cfg.language
     if not session_exists(session):
-        click.echo(f"Keine laufende Session '{session}' gefunden.")
+        click.echo(t("no_session", lang, session=session))
         return
     try:
         run_tmux("kill-session", "-t", session)
-        click.echo(f"muxnow Session '{session}' wurde beendet.")
+        click.echo(t("session_stopped", lang, session=session))
     except Exception as e:
-        click.echo(f"Fehler beim Beenden der Session: {e}", err=True)
+        click.echo(f"Error stopping session: {e}", err=True)
 
 
 @main.command()
@@ -148,31 +156,33 @@ def sidecar(pane: str, log: str) -> None:
 
 
 @main.command()
-@click.option("--pane", "-p", default=None, help="Ziel-Pane ID")
+@click.option("--pane", "-p", default=None, help="Target pane ID")
 def toggle(pane: Optional[str]) -> None:
-    """Mitschnitt pausieren oder fortsetzen (Hardware-artiger Pipe-Stopp)."""
+    """Pause or resume capture pipe."""
     if not is_inside_tmux():
-        click.echo("Nicht in tmux.", err=True)
+        click.echo("Not inside tmux.", err=True)
         return
 
+    cfg = MuxnowConfig.load()
+    lang = cfg.language
     target_pane = pane or find_shell_pane()
     session = get_current_session_name()
     log_file = DEFAULT_LOG_DIR / f"{session}_capture.log"
 
     if is_capture_active(target_pane):
         stop_capture_pipe(target_pane)
-        run_tmux("display-message", "-d", "1500", "muxnow: Mitschnitt PAUSIERT ⏸", check=False)
+        run_tmux("display-message", "-d", "1500", t("toast_paused", lang), check=False)
     else:
         start_capture_pipe(target_pane, str(log_file))
-        run_tmux("display-message", "-d", "1500", "muxnow: Mitschnitt AKTIV ⏺", check=False)
+        run_tmux("display-message", "-d", "1500", t("toast_active", lang), check=False)
 
 
 @main.command()
-@click.option("--pane", "-p", default=None, help="Ziel-Pane ID")
+@click.option("--pane", "-p", default=None, help="Target pane ID")
 def insert(pane: Optional[str]) -> None:
-    """Vorschlag in die Eingabezeile der Shell einfügen (ohne Enter)."""
+    """Insert suggestion into active shell prompt without executing."""
     if not is_inside_tmux():
-        click.echo("Nicht in tmux.", err=True)
+        click.echo("Not inside tmux.", err=True)
         return
 
     target_pane = pane or find_shell_pane()
@@ -181,17 +191,17 @@ def insert(pane: Optional[str]) -> None:
         cmd = sugg_file.read_text(encoding="utf-8").strip()
         if cmd:
             insert_command_to_pane(target_pane, cmd)
-            run_tmux("display-message", "-d", "1500", f"muxnow: Eingefügt -> {cmd}", check=False)
+            run_tmux("display-message", "-d", "1500", f"muxnow: {cmd}", check=False)
             return
-    run_tmux("display-message", "-d", "1500", "muxnow: Kein Vorschlag vorhanden", check=False)
+    run_tmux("display-message", "-d", "1500", "muxnow: (no suggestion)", check=False)
 
 
 @main.command()
-@click.option("--pane", "-p", default=None, help="Ziel-Pane ID")
+@click.option("--pane", "-p", default=None, help="Target pane ID")
 def execute(pane: Optional[str]) -> None:
-    """Vorschlag in der Shell ausführen."""
+    """Execute suggestion directly in shell."""
     if not is_inside_tmux():
-        click.echo("Nicht in tmux.", err=True)
+        click.echo("Not inside tmux.", err=True)
         return
 
     target_pane = pane or find_shell_pane()
@@ -201,7 +211,7 @@ def execute(pane: Optional[str]) -> None:
         if cmd:
             execute_command_in_pane(target_pane, cmd)
             return
-    run_tmux("display-message", "-d", "1500", "muxnow: Kein Vorschlag vorhanden", check=False)
+    run_tmux("display-message", "-d", "1500", "muxnow: (no suggestion)", check=False)
 
 
 @main.command()
