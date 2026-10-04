@@ -84,7 +84,7 @@ class LLMClient:
             "model": self.config.model,
             "messages": messages,
             "temperature": 0.1,
-            "max_tokens": 300,
+            "max_tokens": 1000,
         }
 
         try:
@@ -93,7 +93,11 @@ class LLMClient:
                 resp.raise_for_status()
                 data = resp.json()
 
-            raw_reply = data["choices"][0]["message"]["content"].strip()
+            msg_obj = data["choices"][0]["message"]
+            raw_reply = (msg_obj.get("content") or "").strip()
+            if not raw_reply and msg_obj.get("reasoning_content"):
+                raw_reply = msg_obj["reasoning_content"].strip()
+
             return self._parse_json_reply(raw_reply)
 
         except httpx.ConnectError:

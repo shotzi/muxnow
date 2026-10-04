@@ -56,12 +56,12 @@ class SidecarApp(App):
         self,
         target_pane: str,
         capture_log: str,
-        config: Optional[AimuxConfig] = None,
+        config: Optional[MuxnowConfig] = None,
     ) -> None:
         super().__init__()
         self.target_pane = target_pane
         self.capture_log = Path(capture_log)
-        self.config = config or AimuxConfig.load()
+        self.config = config or MuxnowConfig.load()
 
         self.redactor = SecretRedactor(
             custom_patterns=self.config.capture.redact_patterns,
