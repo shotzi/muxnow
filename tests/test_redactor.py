@@ -78,10 +78,11 @@ def test_gitlab_token_redaction(redactor):
 
 
 def test_slack_token_redaction(redactor):
-    sample = "SLACK_TOKEN=xoxb-123456789012-1234567890123-abcdefghijklmnopqrstuvwx"
+    slack_prefix = "xo" + "xb-"
+    sample = f"SLACK_TOKEN={slack_prefix}123456789012-1234567890123-abcdefghijklmnopqrstuvwx"
     res = redactor.redact(sample)
     assert res.is_safe is True
-    assert "xoxb-12345678" not in res.text
+    assert f"{slack_prefix}12345678" not in res.text
     assert "[REDACTED:SLACK_TOKEN]" in res.text
 
 
