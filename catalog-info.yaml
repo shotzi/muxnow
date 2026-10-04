@@ -1,0 +1,20 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: aimux
+  title: aimux
+  description: AI-Sidecar für tmux mit verlässlicher Pause und Fail-Closed Redaktion
+  annotations:
+    gitlab.com/project-slug: ai-factory/aimux
+  tags:
+    - terminal
+    - tmux
+    - ai
+    - sidecar
+    - cli
+    - python
+spec:
+  type: tool
+  lifecycle: experimental
+  owner: group:ai-factory
+  system: terminal-tools

@@ -1,0 +1,30 @@
+stages:
+  - test
+  - lint
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+
+cache:
+  paths:
+    - .cache/pip
+    - .venv/
+
+test:
+  stage: test
+  image: python:3.12-slim
+  script:
+    - pip install --upgrade pip
+    - pip install -e ".[dev]"
+    - pytest -v --tb=short
+  rules:
+    - if: $CI_COMMIT_BRANCH
+
+lint:
+  stage: lint
+  image: python:3.12-slim
+  script:
+    - pip install ruff
+    - ruff check .
+  rules:
+    - if: $CI_COMMIT_BRANCH
