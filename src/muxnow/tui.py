@@ -149,6 +149,12 @@ class SidecarApp(App):
         last_pos = 0
         while True:
             try:
+                # Real-time synchronization of capture state with tmux
+                active = is_capture_active(self.target_pane)
+                if active != self.is_capturing:
+                    self.is_capturing = active
+                    self.update_display()
+
                 if self.capture_log.exists():
                     with open(self.capture_log, "r", encoding="utf-8", errors="replace") as f:
                         f.seek(last_pos)
@@ -157,7 +163,7 @@ class SidecarApp(App):
 
                         if new_data:
                             await self.process_terminal_data(new_data)
-            except Exception as e:
+            except Exception:
                 pass
             await asyncio.sleep(0.3)
 
@@ -205,6 +211,20 @@ class SidecarApp(App):
             # Run local guard evaluation
             assessment = self.guard.assess(resp.suggestion)
             self.current_risk = assessment.level
+
+            # Save suggestion for quick keybind insertion from tmux
+            try:
+                sugg_file = (
+                    Path.home()
+                    / ".local"
+                    / "state"
+                    / "muxnow"
+                    / f"{self.target_pane.replace('%', 'p')}_suggestion.txt"
+                )
+                sugg_file.parent.mkdir(parents=True, exist_ok=True)
+                sugg_file.write_text(resp.suggestion or "", encoding="utf-8")
+            except Exception:
+                pass
 
             self.update_display()
 

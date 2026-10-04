@@ -91,7 +91,41 @@ def stop_capture_pipe(target_pane: str) -> None:
 def is_capture_active(target_pane: str) -> bool:
     """Check whether pipe-pane capture is active on target_pane."""
     state = get_pane_user_option(target_pane, "@muxnow_state")
-    return state == "on"
+    # Active unless explicitly switched off
+    return state != "off"
+
+
+def find_shell_pane(session: Optional[str] = None) -> str:
+    """Find the shell pane (the non-sidecar pane) in the tmux session."""
+    target_session = session or get_current_session_name()
+    try:
+        raw = run_tmux(
+            "list-panes",
+            "-t",
+            target_session,
+            "-F",
+            "#{pane_id}:#{pane_current_command}:#{@muxnow_state}",
+            check=False,
+        )
+        panes = [p.strip() for p in raw.splitlines() if p.strip()]
+
+        # 1. Check for pane that has @muxnow_state set
+        for p in panes:
+            parts = p.split(":")
+            if len(parts) >= 3 and parts[2]:
+                return parts[0]
+
+        # 2. Check for pane that is NOT python or sidecar
+        for p in panes:
+            parts = p.split(":")
+            cmd = parts[1].lower() if len(parts) >= 2 else ""
+            if "python" not in cmd and "muxnow" not in cmd:
+                return parts[0]
+
+        # 3. Fallback
+        return get_current_pane_id()
+    except Exception:
+        return get_current_pane_id()
 
 
 def update_pane_border(target_pane: str, is_capturing: bool) -> None:

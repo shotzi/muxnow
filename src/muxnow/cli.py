@@ -14,8 +14,11 @@ from muxnow.config import MuxnowConfig
 from muxnow.tmux import (
     TmuxError,
     create_sidecar_layout,
+    execute_command_in_pane,
+    find_shell_pane,
     get_current_pane_id,
     get_current_session_name,
+    insert_command_to_pane,
     is_capture_active,
     is_inside_tmux,
     run_tmux,
@@ -150,18 +153,55 @@ def toggle(pane: Optional[str]) -> None:
     """Mitschnitt pausieren oder fortsetzen (Hardware-artiger Pipe-Stopp)."""
     if not is_inside_tmux():
         click.echo("Nicht in tmux.", err=True)
-        sys.exit(1)
+        return
 
-    target_pane = pane or get_current_pane_id()
+    target_pane = pane or find_shell_pane()
     session = get_current_session_name()
-    log_file = DEFAULT_LOG_DIR / f"{session}_{target_pane.replace('%', 'p')}_capture.log"
+    log_file = DEFAULT_LOG_DIR / f"{session}_capture.log"
 
     if is_capture_active(target_pane):
         stop_capture_pipe(target_pane)
-        click.echo(f"muxnow: Mitschnitt für Pane {target_pane} PAUSIERT ⏸")
+        run_tmux("display-message", "-d", "1500", "muxnow: Mitschnitt PAUSIERT ⏸", check=False)
     else:
         start_capture_pipe(target_pane, str(log_file))
-        click.echo(f"muxnow: Mitschnitt für Pane {target_pane} AKTIV ⏺")
+        run_tmux("display-message", "-d", "1500", "muxnow: Mitschnitt AKTIV ⏺", check=False)
+
+
+@main.command()
+@click.option("--pane", "-p", default=None, help="Ziel-Pane ID")
+def insert(pane: Optional[str]) -> None:
+    """Vorschlag in die Eingabezeile der Shell einfügen (ohne Enter)."""
+    if not is_inside_tmux():
+        click.echo("Nicht in tmux.", err=True)
+        return
+
+    target_pane = pane or find_shell_pane()
+    sugg_file = DEFAULT_LOG_DIR / f"{target_pane.replace('%', 'p')}_suggestion.txt"
+    if sugg_file.exists():
+        cmd = sugg_file.read_text(encoding="utf-8").strip()
+        if cmd:
+            insert_command_to_pane(target_pane, cmd)
+            run_tmux("display-message", "-d", "1500", f"muxnow: Eingefügt -> {cmd}", check=False)
+            return
+    run_tmux("display-message", "-d", "1500", "muxnow: Kein Vorschlag vorhanden", check=False)
+
+
+@main.command()
+@click.option("--pane", "-p", default=None, help="Ziel-Pane ID")
+def execute(pane: Optional[str]) -> None:
+    """Vorschlag in der Shell ausführen."""
+    if not is_inside_tmux():
+        click.echo("Nicht in tmux.", err=True)
+        return
+
+    target_pane = pane or find_shell_pane()
+    sugg_file = DEFAULT_LOG_DIR / f"{target_pane.replace('%', 'p')}_suggestion.txt"
+    if sugg_file.exists():
+        cmd = sugg_file.read_text(encoding="utf-8").strip()
+        if cmd:
+            execute_command_in_pane(target_pane, cmd)
+            return
+    run_tmux("display-message", "-d", "1500", "muxnow: Kein Vorschlag vorhanden", check=False)
 
 
 @main.command()
