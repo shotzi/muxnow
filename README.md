@@ -1,107 +1,119 @@
-# muxnow — AI-Sidecar für tmux 🚀
+# muxnow — AI Sidecar for tmux 🚀
 
-> **Intelligente Terminal-Assistenz ohne Kontrollverlust.**  
-> Unten deine gewohnte Shell- oder SSH-Session, darüber ein schlankes TUI-Sidecar (Textual), das Ein- und Ausgaben mitliest, Fehler analysiert, Befehlssyntax vorschlägt und interaktive Fragen im Terminalkontext beantwortet.
+> **Intelligent terminal assistance without losing control.**  
+> Keep your familiar shell or SSH session at the bottom, while a lightweight TUI sidecar (built with Textual) runs at the top—reading command input/output, diagnosing errors, suggesting precise commands, and answering interactive queries with full terminal context.
 >
-> **Mit verlässlichem Hardware-artigen Mitschnitt-Stopp (`pipe-pane`), interaktivem Prompt und Fail-Closed Secret-Redaktion.**
+> **Featuring hardware-level capture pause (`pipe-pane`), interactive chat prompt, and fail-closed secret redaction.**
 
 ---
 
 ## 🎯 Highlights
 
-- 💬 **Interaktiver Kontext-Chat:** Stelle oben direkt Fragen in natürlicher Sprache (z. B. *„Wieviel Platz wird in Summe belegt?“* oder *„Zeig mir die 5 größten Ordner“*). `muxnow` liest den Terminal-Puffer und generiert den passenden Befehl samt Erklärung und Risikoeinstufung.
-- ⚡ **Einfügen ohne Blindflug:** Mit `prefix + i` wird der vorgeschlagene Befehl direkt in deine Shell getippt — **ohne** Enter. Du behältst immer die volle Kontrolle.
-- 🛑 **Echter Mitschnitt-Stopp:** Mit `prefix + p` pausierst du den Mitschnitt via `tmux pipe-pane`. Während der Pause verlässt kein einziges Byte deinen Rechner.
-- 🔒 **Fail-Closed Secret Redactor:** Vor jeder Modell-Anfrage werden Passwörter, Private Keys, Bearer Tokens, JWTs und Cloud-Keys geschwärzt.
-- 🌐 **Modell-Flexibilität:** Funktioniert nahtlos mit OpenAI-kompatiblen Endpunkten (z. B. DeepSeek, LiteLLM, Ollama, vLLM).
-- 📜 **Audit-Trail:** Jede Aktion wird unveränderbar in einem append-only JSONL-Audit-Log protokolliert (inkl. SHA256-Hashes, Risikoklassen, Zeitstempel).
+- 💬 **Interactive Context-Aware Chat:** Ask questions directly in natural language (e.g., *"How much total disk space is used?"* or *"Show me the 5 largest directories"*). `muxnow` inspects the active terminal buffer and produces the exact shell command with an explanation and risk assessment.
+- ⚡ **No Blind Execution:** Press `prefix + i` to insert the suggested command straight into your active shell prompt — **without** executing it. You review, edit if desired, and press Enter yourself.
+- 🛑 **True Capture Pause:** Press `prefix + p` to instantly toggle capture via `tmux pipe-pane`. When paused, not a single byte leaves your local machine.
+- 🔒 **Fail-Closed Secret Redactor:** Automatically strips passwords, private keys, bearer tokens, JWTs, cloud credentials, and high-entropy secrets before sending data to any model.
+- 🌐 **Model Flexibility:** Seamlessly works with any OpenAI-compatible API endpoint (e.g. DeepSeek, LiteLLM, Ollama, vLLM, LocalAI).
+- 📜 **Immutable Audit Trail:** Logs every prompt, suggestion, hash, and risk level into an append-only JSONL audit file.
 
 ---
 
-## ⌨️ Tastatur-Bedienung
+## ⌨️ Keyboard Shortcuts
 
-| Taste | Aktion | Beschreibung |
+| Shortcut | Action | Description |
 |---|---|---|
-| `prefix + Tab` | **Fokus wechseln** | Wechselt zwischen Eingabezeile des Assistenten und deiner Shell |
-| `Esc` *(im Prompt)* | **Zurück zur Shell** | Springt aus dem Chat-Prompt sofort wieder in die Shell |
-| `prefix + i` | **Vorschlag einfügen** | Schreibt den Befehl in die untere Shell — **ohne** Enter |
-| `prefix + p` | **Mitschnitt Pause/Start** | Schaltet `pipe-pane` sofort an/aus (mit Live-Statusanzeige) |
-| `prefix + a` | **Sidecar umschalten** | Assistenten-Pane oben temporär ein- oder ausblenden |
-| `prefix + e` | **Replay exportieren** | Letzte Interaktionen als sauberes Markdown exportieren |
+| `prefix + Tab` | **Toggle Focus** | Switches focus between the sidecar prompt and your shell |
+| `Esc` *(in prompt)* | **Back to Shell** | Immediately exits the chat prompt and focuses the shell below |
+| `prefix + i` | **Insert Suggestion** | Types the proposed command into the active shell without executing |
+| `prefix + p` | **Pause / Resume Capture** | Toggles `pipe-pane` capture with instant visual on-screen feedback |
+| `prefix + a` | **Toggle Sidecar** | Temporarily collapses or expands the top assistant pane |
+| `prefix + e` | **Export Replay** | Exports recent terminal interactions to clean Markdown |
 
-*(Hinweis: `prefix` ist standardmäßig `Ctrl + b`)*
+*(Note: `prefix` is `Ctrl + b` by default in tmux)*
 
 ---
 
-## 🏗️ Architektur
+## 🏗️ Architecture
 
 ```text
-┌── tmux-Session "muxnow" ─────────────────────────────────────────────┐
-│  Pane %1 (oben)   muxnow-assistant (Textual TUI)                     │
-│                   Interaktiver Chat, Befehlsvorschläge, Risikostufe  │
-│                   Eingabezeile mit Esc-Fokuswechsel                  │
+┌── tmux session "muxnow" ─────────────────────────────────────────────┐
+│  Pane %1 (top)     muxnow-assistant (Textual TUI)                    │
+│                    Interactive chat, command suggestions, risk badge │
+│                    Prompt input with Esc quick-return                │
 ├──────────────────────────────────────────────────────────────────────┤
-│  Pane %0 (unten)  Shell / SSH ── pipe-pane ──► muxnow capture queue  │
+│  Pane %0 (bottom)  Shell / SSH ── pipe-pane ──► muxnow capture queue  │
 └──────────────────────────────────────────────────────────────────────┘
          ▲                                                  │
-         │ Send-Queue (Blöcke)                              │ Vorschlag
+         │ Block feed (commands & outputs)                  │ Suggestion
          │                                                  ▼
-    muxnow-daemon  ── Block-Parser (OSC 133) ── Redactor ── LLM (DeepSeek / LiteLLM / Ollama)
-                   └─ Audit-Log (JSONL)
+    muxnow-daemon  ── Block Parser (OSC 133) ── Redactor ── LLM (DeepSeek / LiteLLM / Ollama)
+                   └─ Audit Log (JSONL)
 ```
 
 ---
 
-## 🚀 Installation & Schnellstart
+## 🚀 Installation & Quickstart
 
-### 1. Installation
+### 1. Prerequisites
+- Python 3.11+
+- [tmux](https://github.com/tmux/tmux) 3.2+
+- Recommended: [`uv`](https://github.com/astral-sh/uv)
 
-Mit [`uv`](https://github.com/astral-sh/uv) (empfohlen):
+### 2. Installation
+
+Using [`uv`](https://github.com/astral-sh/uv) (recommended):
 ```bash
-# Direkt als isoliertes CLI-Tool installieren
+# Clone the repository
+git clone https://github.com/shotzi/muxnow.git
+cd muxnow
+
+# Install as a global, isolated tool
 uv tool install --editable .
 ```
 
-Oder klassisch via `pip`:
+Or via standard `pip`:
 ```bash
+git clone https://github.com/shotzi/muxnow.git
+cd muxnow
 pip install -e .
 ```
 
-### 2. Konfiguration
+### 3. Configuration
 
-Erstelle die Datei `~/.config/muxnow/config.toml`:
+Create your configuration file at `~/.config/muxnow/config.toml`:
 
 ```toml
-# Beispiel: DeepSeek API direkt
+# Example: Direct DeepSeek API
 model = "deepseek-flash"
 base_url = "https://api.deepseek.com/v1"
 api_key = "sk-..."
 
-# Oder lokales LiteLLM / Ollama:
+# Example: Local Ollama / LiteLLM
 # model = "qwen2.5-coder:7b"
 # base_url = "http://127.0.0.1:11434/v1"
 
-# Sicherheitseinstellungen
+# Safety settings
 risk_threshold = "medium"
 mask_secrets = true
 ```
 
-*Alternativ kann der Key auch über die Umgebungsvariable `MUXNOW_API_KEY` gesetzt werden.*
+*Tip: You can also provide your API key via the `MUXNOW_API_KEY` environment variable.*
 
-### 3. Starten
+### 4. Running muxnow
 
 ```bash
-# Startet tmux mit geteiltem Fenster (Assistent oben, Shell unten):
+# Launch tmux with the split window (assistant on top, shell below):
 muxnow start
 
-# Wenn die Session bereits läuft, verbindet sich `muxnow start` automatisch.
-# Beenden der Session:
+# If the session is already active, muxnow start re-attaches automatically.
+# To shut down the session:
 muxnow stop
 ```
 
 ---
 
-## 🛡️ Lizenz
+## 🛡️ License
 
-MIT License – Copyright (c) 2026 Sascha Hotz. Siehe [LICENSE](LICENSE).
+MIT License – Copyright (c) 2026 Sascha Hotz. See [LICENSE](LICENSE) for details.
+
 
